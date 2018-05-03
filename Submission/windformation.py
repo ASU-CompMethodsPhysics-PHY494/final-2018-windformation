@@ -106,10 +106,29 @@ def tornado(space, loc=10, lpress=10, rpress=1):
 #wind
 
 def energytopressure(energies, dV):
+    '''
+        :Arguments:
+            *energies*
+                numpy.array values of energy from sun in J/m**2/day using
+                edist with mean eavg
+            *dV*
+                volume of each area conisdered
+        :Returns:
+            *ps*
+                numpy.array values of pressures after heating
+    '''
     ps = energies/dV
     return ps
 
 def altitude_pressures(space):
+    '''
+        :Arguments:
+            *space*
+                numpy.array 3-D array of zeros
+        :Returns:
+            *pressures*
+                numpy.array values of pressure
+    '''
     pressures = space
     for h in range(np.array(space.shape)[2]):
         p = 101325*np.e**(-0.000119806*h)
