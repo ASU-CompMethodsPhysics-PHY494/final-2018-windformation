@@ -9,23 +9,24 @@ ymax = 20 #max y values in m
 zmax = 20 #max z values in m
 
 space = np.zeros((xmax, ymax, zmax))
+space_w = np.zeros((10, 10, 100))
 
 def sun_e(space, eavg=1.08e7, estd=1):
-        '''
-        :Arguments:
-            *space*
-                numpy.array 3-D array of zeros
-            *eavg*
-                int average value of energy from sun in J/m**2/day;
-                default = 1.08e7 (average over Chicago)
-            *estd*
-                int standard deviation of energy from sun from eavg;
-                default = 1
-        :Returns:
-            *energies*
-                numpy.array values of energy from sun in J/m**2/day using
-                edist with mean eavg
-        '''
+    '''
+    :Arguments:
+        *space*
+            numpy.array 3-D array of zeros
+        *eavg*
+            int average value of energy from sun in J/m**2/day;
+            default = 1.08e7 (average over Chicago)
+        *estd*
+            int standard deviation of energy from sun from eavg;
+            default = 1
+    :Returns:
+        *energies*
+            numpy.array values of energy from sun in J/m**2/day using
+            edist with mean eavg
+    '''
     energies = np.zeros(space.shape)
     for i in range(np.array(space.shape)[0]):
         for j in range(np.array(space.shape)[1]):
@@ -134,3 +135,288 @@ def altitude_pressures(space):
         p = 101325*np.e**(-0.000119806*h)
         pressures[:, :, h] = p
     return pressures
+def calc_J_air(pressures, D, dV=dv, T=329):
+    '''
+        :Arguments:
+            *pressures*
+                numpy.array values of pressure
+            *D*
+                Diffusion coefficient (cm**2/s)
+            *dV*
+                volume of each point in the space (m**3)
+            *T*
+                temperature (Kelvins)
+        :Returns:
+            *js*
+                numpy array of the differences of pressures between adjcent points in pressures
+    '''
+    R = 8.314598
+    js = np.zeros([np.array(pressures.shape)[0], np.array(pressures.shape)[1], np.array(pressures.shape)[2], 9])
+    for i in range(np.array(pressures.shape)[0]):
+        for j in range(np.array(pressures.shape)[1]):
+            for k in range(np.array(pressures.shape)[2]):
+                p = pressures[i, j, k]
+
+                n = p*dV/(R*T)
+                phi = n/dV
+
+                try:
+                    assert i-1 != -1
+                    pleft = pressures[i-1, j, k]
+                    n = pleft*dV/(R*T)
+                    phileft = n/dV
+                    dphileft = phi - phileft
+                except:
+                    phileft = np.nan
+                    dphileft = 0
+
+                try:
+                    pright = pressures[i+1, j, k]
+                    n = pright*dv/(R*T)
+                    phiright = n/dv
+                    dphiright = phi - phiright
+                except:
+                    phiright = np.nan
+                    dphiright = 0
+
+                try:
+                    assert j-1 != -1
+                    pfront = pressures[i, j-1, k]
+                    n = pfront*dV/(R*T)
+                    phifront = n/dV
+                    dphifront = phi - phifront
+                except:
+                    phifront = np.nan
+                    dphifront = 0
+
+                try:
+                    pback = pressures[i, j+1, k]
+                    n = pback*dV/(R*T)
+                    phiback = n/dV
+                    dphiback = phi - phiback
+                except:
+                    phiback = np.nan
+                    dphiback = 0
+
+                try:
+                    assert k-1 != -1
+                    pdown = pressures[i, j, k-1]
+                    n = pdown*dV/(R*T)
+                    phidown = n/dV
+                    dphidown = phi - phidown
+                except:
+                    phidown = np.nan
+                    dphidown = 0
+
+                try:
+                    pup = pressures[i, j, k+1]
+                    n = pup*dV/(R*T)
+                    phiup = n/dV
+                    dphiup = phi - phiup
+                except:
+                    phiup = np.nan
+                    dphiup = 0
+
+                gradphix = (dphileft - dphiright)/2 #phiright-phileft
+                gradphiy = (dphiback - dphifront)/2 #phifront-phiback
+                gradphiz = (dphidown - dphiup)/2 #phiup-phidown
+
+                gradphi = np.array([dphileft, dphiright, dphiback, dphifront, dphidown, dphiup,
+                                    gradphix, gradphiy, gradphix])/(dV)**(1/3)
+                J = -gradphi*D
+                js[i, j, k, :] = J
+    return js
+
+def pressure_diffusion(pressures, D=1.76e-5, dV=dv, T=329, dt=1):
+    '''
+        :Arguments:
+            *presures*
+                numpy.array values of pressure
+             *D*
+                Diffusion coefficient (cm**2/s)
+            *dV*
+                volume of each point in the space (m**3)
+            *T*
+                temperature (Kelvins)
+            *dt*
+                time step
+        :Returns:
+            *pressures*
+                numpy.array values of pressure after taking js into account
+    '''
+    js = calc_J_air(pressures, D)
+    R = 8.314598
+    Rarray = R*np.ones(pressures.shape)
+    ns = np.divide(pressures*dV, Rarray*T)
+
+    for i in range(np.array(pressures.shape)[0]):
+        for j in range(np.array(pressures.shape)[1]):
+            for k in range(np.array(pressures.shape)[2]):
+                a = js[i, j, k, 0]*D*dt*np.random.normal(loc=1, scale=.2)
+                b = js[i, j, k, 1]*D*dt*np.random.normal(loc=1, scale=.2)
+                c = js[i, j, k, 2]*D*dt*np.random.normal(loc=1, scale=.2)
+                d = js[i, j, k, 3]*D*dt*np.random.normal(loc=1, scale=.2)
+                e = js[i, j, k, 4]*D*dt*np.random.normal(loc=1, scale=.2)
+                f = js[i, j, k, 5]*D*dt*np.random.normal(loc=1, scale=.2)
+
+                if a > 0:
+                    ns[i, j, k] += a
+                    ns[i-1, j, k] -= a
+
+                if b > 0:
+                    ns[i, j, k] += b
+                    ns[i+1, j, k] -= b
+
+                if c > 0:
+                    ns[i, j, k] += c
+                    ns[i, j+1, k] -= c
+
+                if d > 0:
+                    ns[i, j, k] += d
+                    ns[i, j-1, k] -= d
+
+                if e > 0:
+                    ns[i, j, k] += e
+                    ns[i, j, k-1] -= e
+
+                if f > 0:
+                    ns[i, j, k] += f
+                    ns[i, j, k+1] -= f
+
+    pressures = ns*R*T/dV
+    return pressures
+
+def integrate_from_sun(space, D=1.76e-5, dV=dv, tmax=20,
+                       dt=1):
+    pressures = np.zeros(space.shape)
+    times = np.arange(0, tmax, dt)
+    pt = np.zeros([len(times), np.array(space.shape)[0],
+                   np.array(space.shape)[1], (np.array(space.shape)[2])])
+    ps = altitude_pressures(space)
+    for t in range(len(times)):
+        pt[t] = ps
+        energies = sun_e(space)
+        ps += energytopressure(energies, dV)
+        ps = pressure_diffusion(ps, D=D, dt=dt)
+    return pt
+
+def calc_J_water(humidities, dV=dv, D=2.82e-5, T=329):
+    js = np.zeros([np.array(humidities.shape)[0], np.array(humidities.shape)[1], np.array(humidities.shape)[2], 9])
+    for i in range(np.array(humidities.shape)[0]):
+        for j in range(np.array(humidities.shape)[1]):
+            for k in range(np.array(humidities.shape)[2]):
+                h = humidities[i, j, k]
+                phi = h
+
+                try:
+                    assert i-1 != -1
+                    hleft = humidities[i-1, j, k]
+                    phileft = hleft
+                    dphileft = phi - phileft
+                except:
+                    phileft = np.nan
+                    dphileft = 0
+
+                try:
+                    hright = humidities[i+1, j, k]
+                    phiright = hright
+                    dphiright = phi - phiright
+                except:
+                    phiright = np.nan
+                    dphiright = 0
+
+                try:
+                    assert j-1 != -1
+                    hfront = humidities[i, j-1, k]
+                    phifront = hfront
+                    dphifront = phi - phifront
+                except:
+                    phifront = np.nan
+                    dphifront = 0
+
+                try:
+                    hback = humidities[i, j+1, k]
+                    phiback = hback
+                    dphiback = phi - phiback
+                except:
+                    phiback = np.nan
+                    dphiback = 0
+
+                try:
+                    assert k-1 != -1
+                    hdown = humidities[i, j, k-1]
+                    phidown = hdown
+                    dphidown = phi - phidown
+                except:
+                    phidown = np.nan
+                    dphidown = 0
+
+                try:
+                    hup = humidities[i, j, k+1]
+                    phiup = hup
+                    dphiup = phi - phiup
+                except:
+                    phiup = np.nan
+                    dphiup = 0
+
+                gradphix = (dphileft - dphiright)/2 #phiright-phileft
+                gradphiy = (dphiback - dphifront)/2 #phifront-phiback
+                gradphiz = (dphidown - dphiup)/2 #phiup-phidown
+
+                gradphi = np.array([dphileft, dphiright, dphiback, dphifront, dphidown, dphiup,
+                                    gradphix, gradphiy, gradphix])/(dV)**(1/3)
+                J = -gradphi*D
+                js[i, j, k, :] = J
+    return js
+
+def water_diffusion(humidities, D=2.82e-5, dV=dv, dt=1):
+    js = calc_J_water(humidities, D=D)
+    ns = humidities*dV
+
+    for i in range(np.array(humidities.shape)[0]):
+        for j in range(np.array(humidities.shape)[1]):
+            for k in range(np.array(humidities.shape)[2]):
+                a = js[i, j, k, 0]*dt*np.random.normal(loc=1, scale=.2)
+                b = js[i, j, k, 1]*dt*np.random.normal(loc=1, scale=.2)
+                c = js[i, j, k, 2]*dt*np.random.normal(loc=1, scale=.2)
+                d = js[i, j, k, 3]*dt*np.random.normal(loc=1, scale=.2)
+                e = js[i, j, k, 4]*dt*np.random.normal(loc=1, scale=.2)
+                f = js[i, j, k, 5]*dt*np.random.normal(loc=1, scale=.2)
+
+                if a > 0:
+                    ns[i, j, k] += a
+                    ns[i-1, j, k] -= a
+
+                if b > 0:
+                    ns[i, j, k] += b
+                    ns[i+1, j, k] -= b
+
+                if c > 0:
+                    ns[i, j, k] += c
+                    ns[i, j+1, k] -= c
+
+                if d > 0:
+                    ns[i, j, k] += d
+                    ns[i, j-1, k] -= d
+
+                if e > 0:
+                    ns[i, j, k] += e
+                    ns[i, j, k-1] -= e
+
+                if f > 0:
+                    ns[i, j, k] += f
+                    ns[i, j, k+1] -= f
+
+    humidities = ns/dV
+    return humidities
+
+def integrate_from_cloud(space, D=2.82e-5, loc=(10, 10, 10), size=(5, 1, 1), dV=dv, tmax=20,
+                       dt=1):
+    times = np.arange(0, tmax, dt)
+    ht = np.zeros([len(times), np.array(space.shape)[0],
+                   np.array(space.shape)[1], (np.array(space.shape)[2])])
+    hs = cloud(space, loc=loc, size=size)
+    for t in range(len(times)):
+        ht[t] = hs
+        hs = water_diffusion(hs, D=D, dt=dt)
+    return ht
