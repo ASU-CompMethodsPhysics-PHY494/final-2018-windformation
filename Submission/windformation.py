@@ -131,7 +131,7 @@ def calc_J_air(pressures, D, dV=dv, T=329):
             *pressures*
                 numpy.array values of pressure
             *D*
-                Diffusion coefficient (cm**2/s)
+                Diffusion coefficient (m**2/s)
             *dV*
                 volume of each point in the space (m**3)
             *T*
@@ -223,7 +223,7 @@ def pressure_diffusion(pressures, D=1.76e-5, dV=dv, T=329, dt=1):
             *presures*
                 numpy.array values of pressure
              *D*
-                Diffusion coefficient (cm**2/s)
+                Diffusion coefficient (m**2/s)
             *dV*
                 volume of each point in the space (m**3)
             *T*
@@ -278,6 +278,22 @@ def pressure_diffusion(pressures, D=1.76e-5, dV=dv, T=329, dt=1):
 
 def integrate_from_sun(space, D=1.76e-5, dV=dv, tmax=20,
                        dt=1):
+    '''
+        :Arguements:
+            *space*
+                numpy.array 3-D array of zeros
+            *D*
+               Diffusion coefficient (m**2/s)
+            *dV*
+                volume of each point in the space (m**3)
+            *tmax*
+                maximum time the function will run
+            *dt*
+                time step
+        :Returns:
+            *pt*
+                pressure after solar energy is added
+    '''
     pressures = np.zeros(space.shape)
     times = np.arange(0, tmax, dt)
     pt = np.zeros([len(times), np.array(space.shape)[0],
@@ -291,6 +307,20 @@ def integrate_from_sun(space, D=1.76e-5, dV=dv, tmax=20,
     return pt
 
 def calc_J_water(humidities, dV=dv, D=2.82e-5, T=329):
+    '''
+        :Argeuments:
+            *humidities*
+                numpy.array of humdity values
+            *dv*
+                volume of each point in the space (m**3)
+            *D*
+               Diffusion coefficient for water in air (m**2/s)
+            *T*
+                temperature (kelvins)
+        :Returns:
+            *js*
+                numpy array of the differences of humdity between adjcent points
+    '''
     js = np.zeros([np.array(humidities.shape)[0], np.array(humidities.shape)[1], np.array(humidities.shape)[2], 9])
     for i in range(np.array(humidities.shape)[0]):
         for j in range(np.array(humidities.shape)[1]):
@@ -360,6 +390,20 @@ def calc_J_water(humidities, dV=dv, D=2.82e-5, T=329):
     return js
 
 def water_diffusion(humidities, D=2.82e-5, dV=dv, dt=1):
+    '''
+        :Argeuments:
+            *humidities*
+                numpy.array of humdity values
+            *D*
+               Diffusion coefficient for water in air (m**2/s)
+            *dv*
+                volume of each point in the space (m**3)
+            *dt*
+                time step
+        :Returns:
+            *humidities*
+                numpy.array of humdity values after t seconds of diffusion
+    '''
     js = calc_J_water(humidities, D=D)
     ns = humidities*dV
 
@@ -402,6 +446,27 @@ def water_diffusion(humidities, D=2.82e-5, dV=dv, dt=1):
 
 def integrate_from_cloud(space, D=2.82e-5, loc=(10, 10, 10), size=(5, 1, 1), dV=dv, tmax=20,
                        dt=1):
+    '''
+        :Argeuments:
+            *space*
+                numpy.array 3-D array of zeros
+            *D*
+               Diffusion coefficient for water in air (m**2/s)
+            *loc*
+                int location of pressure difference;
+                default = 10
+            *size*
+                size of the Cloud
+            *dv*
+                volume of each point in the space (m**3)
+            *tmax*
+                maximum time the function will run
+            *dt*
+                time step
+        :Returns:
+            *ht*
+                humdity values after diffusion
+    '''
     times = np.arange(0, tmax, dt)
     ht = np.zeros([len(times), np.array(space.shape)[0],
                    np.array(space.shape)[1], (np.array(space.shape)[2])])
