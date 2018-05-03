@@ -112,7 +112,7 @@ def energytopressure(energies, dV):
                 numpy.array values of energy from sun in J/m**2/day using
                 edist with mean eavg
             *dV*
-                volume of each area conisdered
+                volume of each point in the space (m**3)
         :Returns:
             *ps*
                 numpy.array values of pressures after heating
