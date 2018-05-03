@@ -1,16 +1,6 @@
 import numpy as np
 import pandas as pd
 
-dv = 1 #amount of space each point represents in m**3
-dr = dv**(1/3)
-
-xmax = 20 #max x values in m
-ymax = 20 #max y values in m
-zmax = 20 #max z values in m
-
-space = np.zeros((xmax, ymax, zmax))
-space_w = np.zeros((10, 10, 100))
-
 def sun_e(space, eavg=1.08e7, estd=1):
     '''
     :Arguments:
